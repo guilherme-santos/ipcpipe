@@ -6,6 +6,7 @@ import (
 	"strings"
 	"syscall"
 	"text/scanner"
+	"unicode"
 
 	"github.com/pkg/errors"
 )
@@ -113,7 +114,6 @@ func (srv *Server) read() {
 
 		// It's not a command it means someone is trying to set a field.
 
-
 		fieldBuf := new(strings.Builder)
 		fieldBuf.WriteString(s.TokenText())
 
@@ -121,16 +121,28 @@ func (srv *Server) read() {
 		tmp := fieldBuf
 
 		for tok := s.Scan(); tok != scanner.EOF; tok = s.Scan() {
-			fmt.Printf("%q / %q\n", s.Peek(), s.TokenText())
 			if s.TokenText() == "=" {
-				// When find = means that value is starting
+				// When find equal symol means that value is starting
 				tmp = valBuf
+
+				// For the value we want to remove only leading spaces, spaces found through
+				// the value should e kept.
+				// if you really need to have leading spaces make sure you pass the content between quotes.
+				// e.g. `echo field = " send leading and trailing whitespaces " > namedpipe`
+				s.IsIdentRune = func(ch rune, i int) bool {
+					return ch == '_' ||
+						unicode.IsLetter(ch) ||
+						unicode.IsDigit(ch) && i > 0 ||
+						scanner.GoWhitespace&(1<<uint(ch)) != 0 && i > 0
+				}
+
 				continue
 			}
-			if s.Peek() == ' ' {
-				tmp.WriteString(" ")
-			}
-			tmp.WriteString(s.TokenText())
+			// Quotes should e removed otherwise we'll call the function as "text" instead of
+			// just text.
+			txt := strings.Trim(s.TokenText(), "\"")
+
+			tmp.WriteString(txt)
 		}
 
 		field := fieldBuf.String()

@@ -169,17 +169,68 @@ func TestBindField(t *testing.T) {
 	testBindField(t, psrv, path)
 }
 
-	testBindField(t, psrv, path, &wg)
+func TestBindField_IgnoringLeadingWhitespaces(t *testing.T) {
+	path, cleanup := genPath(t, "namedpipe")
+	defer cleanup()
+
+	psrv, err := ipcpipe.NewServer(path)
+	assert.NoError(t, err)
+
+	var str string
+	v := "text with some  spaces  "
+
+	psrv.BindField("string.ignoring.whitespace", &str)
+
+	go sendToPipe(t, path, fmt.Sprintf("  %s  =  %s", "string.ignoring.whitespace", v))
 
 	done := make(chan struct{})
+	// check if field was setted
 	go func() {
-		wg.Wait()
-		close(done)
+		for {
+			if strings.EqualFold(v, str) {
+				close(done)
+				return
+			}
+			time.Sleep(time.Millisecond)
+		}
 	}()
 
 	select {
-	case <-time.After(time.Second):
-		t.Error("BindField didn't update the field")
+	case <-time.After(500 * time.Millisecond):
+		t.Errorf("BindField didn't update the field, it was expected: %q", v)
+	case <-done:
+	}
+}
+
+func TestBindField_DoNotIgnoreLeadingWhitespaces(t *testing.T) {
+	path, cleanup := genPath(t, "namedpipe")
+	defer cleanup()
+
+	psrv, err := ipcpipe.NewServer(path)
+	assert.NoError(t, err)
+
+	var str string
+	v := "  space in the end  "
+
+	psrv.BindField("string.do-not-ignore.whitespace", &str)
+
+	go sendToPipe(t, path, fmt.Sprintf("  %s  = \"%s\" ", "string.do-not-ignore.whitespace", v))
+
+	done := make(chan struct{})
+	// check if field was setted
+	go func() {
+		for {
+			if strings.EqualFold(v, str) {
+				close(done)
+				return
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}()
+
+	select {
+	case <-time.After(200 * time.Millisecond):
+		t.Errorf("BindField didn't update the field, it was expected: %q", v)
 	case <-done:
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -13,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func testBindField(t *testing.T, psrv *ipcpipe.Server, path string, wg *sync.WaitGroup) {
+func testBindField(t *testing.T, psrv *ipcpipe.Server, path string) {
 	var (
 		b bool
 		// integer
@@ -118,8 +117,6 @@ func testBindField(t *testing.T, psrv *ipcpipe.Server, path string, wg *sync.Wai
 		},
 	}
 
-	wg.Add(len(testCases))
-
 	for _, tc := range testCases {
 		t.Run(tc.Field, func(t *testing.T) {
 			// bind the field
@@ -128,17 +125,24 @@ func testBindField(t *testing.T, psrv *ipcpipe.Server, path string, wg *sync.Wai
 			// set the field
 			go sendToPipe(t, path, fmt.Sprintf("%s=%s", tc.Field, tc.Result))
 
+			done := make(chan struct{})
 			// check if field was setted
 			go func(p interface{}, res string) {
-				defer wg.Done()
 				for {
 					s := fmt.Sprintf("%v", reflect.ValueOf(p).Elem())
 					if strings.EqualFold(res, s) {
+						close(done)
 						return
 					}
 					time.Sleep(time.Millisecond)
 				}
 			}(tc.Pointer, tc.Result)
+
+			select {
+			case <-time.After(200 * time.Millisecond):
+				t.Errorf("BindField didn't update the field, it was expected: %v", tc.Result)
+			case <-done:
+			}
 		})
 	}
 }
@@ -162,7 +166,8 @@ func TestBindField(t *testing.T) {
 	// 	}
 	// )
 
-	var wg sync.WaitGroup
+	testBindField(t, psrv, path)
+}
 
 	testBindField(t, psrv, path, &wg)
 

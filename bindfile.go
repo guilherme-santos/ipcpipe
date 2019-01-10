@@ -1,7 +1,6 @@
 package ipcpipe
 
 import (
-	"fmt"
 	"reflect"
 	"strconv"
 )
@@ -71,7 +70,6 @@ func bindField(field string, v interface{}) FieldFunc {
 			elem.SetFloat(n)
 
 		case reflect.String:
-			fmt.Println(value)
 			elem.SetString(value)
 
 		default:

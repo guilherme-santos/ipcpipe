@@ -55,7 +55,8 @@ func TestCommand(t *testing.T) {
 	assert.NoError(t, err)
 
 	fnCalled := make(chan struct{})
-	psrv.Command("test", func(args ...string) error {
+	psrv.Command("test", func(cmd string, args ...string) error {
+		assert.Equal(t, "test", cmd)
 		if assert.Len(t, args, 2) {
 			assert.Equal(t, "arg", args[0])
 			assert.Equal(t, "with space", args[1])
@@ -81,7 +82,8 @@ func TestBind(t *testing.T) {
 	assert.NoError(t, err)
 
 	fnCalled := make(chan struct{})
-	psrv.Bind("test", func(val string) error {
+	psrv.Bind("test", func(field, val string) error {
+		assert.Equal(t, "test", field)
 		assert.Equal(t, "true", val)
 		close(fnCalled)
 		return nil
@@ -104,7 +106,8 @@ func TestBind_WithDot(t *testing.T) {
 	assert.NoError(t, err)
 
 	fnCalled := make(chan struct{})
-	psrv.Bind("app.test", func(val string) error {
+	psrv.Bind("app.test", func(field, val string) error {
+		assert.Equal(t, "app.test", field)
 		assert.Equal(t, "true", val)
 		close(fnCalled)
 		return nil

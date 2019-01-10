@@ -15,8 +15,8 @@ import (
 var ErrFileIsNotNamedPipe = errors.New("ipcpipe: file is not a named pipe")
 
 type (
-	CommandFunc func(args ...string) error
-	FieldFunc   func(value string) error
+	CommandFunc func(cmd string, args ...string) error
+	FieldFunc   func(field, value string) error
 )
 
 type Server struct {
@@ -71,13 +71,13 @@ func NewServer(path string) (*Server, error) {
 	return srv, nil
 }
 
-func (srv *Server) execute(fn CommandFunc, s scanner.Scanner) error {
+func (srv *Server) execute(cmd string, fn CommandFunc, s scanner.Scanner) error {
 	args := make([]string, 0)
 	for tok := s.Scan(); tok != scanner.EOF; tok = s.Scan() {
 		args = append(args, strings.Trim(s.TokenText(), `"`))
 	}
 
-	return fn(args...)
+	return fn(cmd, args...)
 }
 
 func (srv *Server) read() {
@@ -100,9 +100,10 @@ func (srv *Server) read() {
 			continue
 		}
 
+		// Check if it's a command.
 		cmd := s.TokenText()
 		if fn, ok := srv.commands[cmd]; ok {
-			err := srv.execute(fn, s)
+			err := srv.execute(cmd, fn, s)
 			if err != nil {
 				// TODO handle error
 				panic(fmt.Sprint(cmd, ": ", err))
@@ -110,17 +111,20 @@ func (srv *Server) read() {
 			continue
 		}
 
-		field := new(strings.Builder)
-		field.WriteString(s.TokenText())
+		// It's not a command it means someone is trying to set a field.
 
-		val := new(strings.Builder)
-		tmp := field
+
+		fieldBuf := new(strings.Builder)
+		fieldBuf.WriteString(s.TokenText())
+
+		valBuf := new(strings.Builder)
+		tmp := fieldBuf
 
 		for tok := s.Scan(); tok != scanner.EOF; tok = s.Scan() {
 			fmt.Printf("%q / %q\n", s.Peek(), s.TokenText())
 			if s.TokenText() == "=" {
 				// When find = means that value is starting
-				tmp = val
+				tmp = valBuf
 				continue
 			}
 			if s.Peek() == ' ' {
@@ -129,11 +133,12 @@ func (srv *Server) read() {
 			tmp.WriteString(s.TokenText())
 		}
 
-		if fn, ok := srv.fields[field.String()]; ok {
-			err := fn(val.String())
+		field := fieldBuf.String()
+		if fn, ok := srv.fields[field]; ok {
+			err := fn(field, valBuf.String())
 			if err != nil {
 				// TODO handle error
-				panic(fmt.Sprint(field.String(), ": ", err))
+				panic(fmt.Sprint(field, ": ", err))
 			}
 			continue
 		}

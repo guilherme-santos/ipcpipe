@@ -15,9 +15,10 @@ func bindField(field string, v interface{}) FieldFunc {
 
 	elem := rv.Elem()
 	typ := elem.Type()
+	kind := elem.Kind()
 
-	return func(value string) error {
-		switch elem.Kind() {
+	return func(field, value string) error {
+		switch kind {
 		case reflect.Bool:
 			b, err := strconv.ParseBool(value)
 			if err != nil {

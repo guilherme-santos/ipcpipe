@@ -83,7 +83,7 @@ func (srv *Server) execute(cmd string, fn CommandFunc, s scanner.Scanner) error 
 
 func (srv *Server) read() {
 	for {
-		// Check if the client is trying to stop the server
+		// Checks if server need to be stopped
 		select {
 		case <-srv.stop:
 			return
@@ -101,7 +101,7 @@ func (srv *Server) read() {
 			continue
 		}
 
-		// Check if it's a command.
+		// Checks if it's a command.
 		cmd := s.TokenText()
 		if fn, ok := srv.commands[cmd]; ok {
 			err := srv.execute(cmd, fn, s)
@@ -113,7 +113,6 @@ func (srv *Server) read() {
 		}
 
 		// It's not a command it means someone is trying to set a field.
-
 		fieldBuf := new(strings.Builder)
 		fieldBuf.WriteString(s.TokenText())
 
@@ -122,11 +121,11 @@ func (srv *Server) read() {
 
 		for tok := s.Scan(); tok != scanner.EOF; tok = s.Scan() {
 			if s.TokenText() == "=" {
-				// When find equal symol means that value is starting
+				// When find equal symbol means that value is starting
 				tmp = valBuf
 
 				// For the value we want to remove only leading spaces, spaces found through
-				// the value should e kept.
+				// the value should be kept.
 				// if you really need to have leading spaces make sure you pass the content between quotes.
 				// e.g. `echo field = " send leading and trailing whitespaces " > namedpipe`
 				s.IsIdentRune = func(ch rune, i int) bool {
@@ -138,9 +137,9 @@ func (srv *Server) read() {
 
 				continue
 			}
-			// Quotes should e removed otherwise we'll call the function as "text" instead of
+			// Quotes should be removed otherwise we'll call the function as "text" instead of
 			// just text.
-			txt := strings.Trim(s.TokenText(), "\"")
+			txt := strings.Trim(s.TokenText(), `"`)
 
 			tmp.WriteString(txt)
 		}

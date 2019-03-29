@@ -1,6 +1,7 @@
 package ipcpipe_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -12,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func testBindField(t *testing.T, psrv *ipcpipe.Server, path string) {
+func testBindField_SimpleTypes(t *testing.T, psrv *ipcpipe.Server, path string) {
 	var (
 		b bool
 		// integer
@@ -147,6 +148,45 @@ func testBindField(t *testing.T, psrv *ipcpipe.Server, path string) {
 	}
 }
 
+func testBindField_SliceInteger(t *testing.T, psrv *ipcpipe.Server, path string) {
+	var arrInt []int
+	expectedArr := []int{1, 2, 3, 4}
+
+	// bind the field
+	psrv.BindField("test.slice.integer", &arrInt)
+
+	// set the field
+	j, _ := json.Marshal(expectedArr)
+	go sendToPipe(t, path, fmt.Sprintf("test.slice.integer=%s", j))
+
+	done := make(chan struct{})
+	// check if field was setted
+	go func() {
+		for {
+			if len(arrInt) == 4 {
+				sameValues := true
+				for i := range arrInt {
+					if expectedArr[i] != arrInt[i] {
+						t.Errorf("Expected %v but got %v", expectedArr, arrInt)
+					}
+				}
+
+				if sameValues {
+					close(done)
+					return
+				}
+			}
+			time.Sleep(time.Millisecond)
+		}
+	}()
+
+	select {
+	case <-time.After(200 * time.Millisecond):
+		t.Errorf("BindField didn't update the field")
+	case <-done:
+	}
+}
+
 func TestBindField(t *testing.T) {
 	path, cleanup := genPath(t, "namedpipe")
 	defer cleanup()
@@ -166,7 +206,12 @@ func TestBindField(t *testing.T) {
 	// 	}
 	// )
 
-	testBindField(t, psrv, path)
+	t.Run("SimpleTypes", func(t *testing.T) {
+		testBindField_SimpleTypes(t, psrv, path)
+	})
+	t.Run("SliceInteger", func(t *testing.T) {
+		testBindField_SliceInteger(t, psrv, path)
+	})
 }
 
 func TestBindField_IgnoringLeadingWhitespaces(t *testing.T) {

@@ -146,6 +146,7 @@ func (srv *Server) read() {
 
 		field := fieldBuf.String()
 		if fn, ok := srv.fields[field]; ok {
+			fmt.Printf("Setting %q as: %+v\n", field, valBuf.String())
 			err := fn(field, valBuf.String())
 			if err != nil {
 				// TODO handle error
